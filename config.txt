@@ -1,3 +1,4 @@
-B: 1
+B: 2
 metadata: localhost:6000
-block1: localhost:5000
+block0: localhost:5000
+block1: localhost:4000

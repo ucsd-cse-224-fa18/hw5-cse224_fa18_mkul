@@ -3,7 +3,7 @@ import sys
 
 
 '''
-A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues - 
+A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
 2. The file being read/deleted does not exist.
 3. The request for modifying/deleting a file has the wrong file version.
@@ -36,14 +36,15 @@ metadata is stored in memory, and no database systems or files will be used to
 maintain the data.
 '''
 class MetadataStore(rpyc.Service):
-	
+
 
 	"""
         Initialize the class using the config file provided and also initialize
         any datastructures you may need.
+		The config file may also be used to create multiple blockstore servers
 	"""
 	def __init__(self, config):
-		pass
+		self.fileHash = {} # stores the file: hash list pairs
 
 	'''
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -55,7 +56,28 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	'''
 	def exposed_modify_file(self, filename, version, hashlist):
-		
+		# for already existent files
+		if filename in self.fileHash.keys():
+			'''check for modified hash and return hash list that needs modifying'''
+			missing_hashlist = self.check_hashlist(filename, hashlist)
+			if version <= self.fileHash[filename][1]:
+				return missing_hashlist, (self.fileHash[filename][1]+1)
+			else:
+				return missing_hashlist, version
+		else:
+			'''create a new filename'''
+			self.create_new_entry(filename, hashlist, version)
+			return hashlist, version
+
+	def check_hashlist(self, filename, hashlist):
+		missing_hashlist = []
+		for hash in hashlist:
+			if hash not in self.fileHash[fileHash][0]:
+				missing_hashlist.append(hash)
+		return missing_hashlist
+
+	def create_new_entry(self, filename, hashlist, version):
+		self.fileHash.update({filename:[version, hashlist]})
 
 	'''
         DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
@@ -77,6 +99,7 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	'''
 	def exposed_read_file(self, filename):
+		# for downloading a file
 		pass
 
 
@@ -84,4 +107,3 @@ if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
 	server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
 	server.start()
-
