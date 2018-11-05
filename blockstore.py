@@ -25,7 +25,7 @@ class BlockStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_store_block(self, h, block):
-		self.Memory.update({h, block})
+		self.Memory.update({h: block})
 
 
 	"""

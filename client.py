@@ -2,7 +2,8 @@ import rpyc
 import hashlib
 import os
 import sys
-
+from metastore import ErrorResponse
+import json
 """
 A client is a program that interacts with SurfStore. It is used to create,
 modify, read, and delete files.  Your client will call the various file
@@ -26,7 +27,7 @@ class SurfStoreClient():
 		list_dat.remove('')
 		for element in list_dat:
 			a, b = element.split(': ')
-			confdict.update({a, b})
+			confdict.update({a: b})
 		self.no_of_blockstores = int(confdict['B'])
 		del confdict['B']
 		metadata_ip_port = confdict['metadata']
@@ -34,7 +35,13 @@ class SurfStoreClient():
 		del confdict['metadata']
 		# connects to the metaDataStore server
 		self.metaDataStore = rpyc.connect(metadata_ip_port.split(':')[0], metadata_ip_port.split(':')[1])
+		self.blockStoreList = []
+		for n in range(self.no_of_blockstores):
+			ip, port = confdict['block'+str(n)].split(':')
+			blockStore = rpyc.connect(ip, port)
+			self.blockStoreList.append(blockStore)
 		self.fileverdict = {}
+		self.hash_dict = {}
 
 	"""
 	upload(filepath) : Reads the local file, creates a set of
@@ -42,56 +49,110 @@ class SurfStoreClient():
 	(and potentially the BlockStore if they were not already present there).
 	"""
 	def upload(self, filepath):
+		version = 1
 		rpath = os.path.realpath(filepath)
-		filename = rpath.split('/')[len(rpath.split('/'))-1]
+		filename = rpath.replace('\\', '/')
+		filename = filename.split('/')
+		filename = filename[len(filename)-1]
+		#print(filename)
 		file = open(rpath, 'rb')
 		# utf-8 and bytes formatting changes?
 		data = file.read()
 		file.close()
 		# create hashlist
-		hash_dict = self.hasher(data, version)
+		self.hash_dict = self.hasher(data)
 		hash_list = []
-		for key, value in hash_dict.items():
-			hashlist.append(key)
+		for key, value in self.hash_dict.items():
+			hash_list.append(key)
 		# we have the hashlist!
 		# initial modify (If this works, that means the filename sent is new)
 		try:
-			missing_hashlist, version = self.metaDataStore.modify_file(filename, 1, hashlist)
+			# need to put a while loop here
+			print(filename)
+			missing_hashlist, version = self.metaDataStore.root.modify_file(filename, 1, json.dumps(hash_list))
+			if json.loads(missing_hashlist):
+				rver = version + 1
+				version += 1
+				missing_hashlist, version = self.metaDataStore.root.modify_file(filename, version, json.dumps(hash_list))
+				if version == rver:
+					print("Modified")
 		except ErrorResponse as e:
 			eprint("Some error happening!")
 			print("Not Found")
+			# putting missing hashlist in blockstore
+		blah = json.loads(missing_hashlist)
+		if blah:
+			for hash in blah:
+				print(blah)
+				block_number = self.findServer(hash)
+				self.blockStoreList[block_number].root.store_block(hash, self.hash_dict[hash])
+			print("OK")
+		else:
+			print("OK")
 
-	def hasher(self, data, version):
+	def hasher(self, data):
 		hash_dict = {}
 		from math import ceil as ceiling
 		for x in range(ceiling(len(data)/4096)):
 			block = data[4096*x:4096*(x+1)]
 			hash = hashlib.sha1(block).hexdigest()
-			hash_dict.include({hash:block})
+			#print(hash)
+			hash_dict.update({hash: block})
 		return hash_dict
 
 	"""
 	delete(filename) : Signals the MetadataStore to delete a file.
 	"""
 	def delete(self, filename):
-		hashlist, version = self.metaDataStore.read_file(filename)
-		if not hashlist:
-			print("OK")
-			pass
-		else:
-			try:
-				if self.metaDataStore.delete_file(filename, version):
-					print("OK")
-			except ErrorResponse as e:
-				eprint(e.argv)
+		try:
+			hashlist, version = self.metaDataStore.root.read_file(filename)
+			hashlist = json.loads(hashlist)
+			version += 1 # for the tombstone value
+			if not hashlist:
 				print("OK")
-
+			else:
+				try:
+					self.metaDataStore.root.delete_file(filename, version)
+					print("OK")
+				except:
+					eprint(e.argv)
+					print("Not Found")
+		except:
+			print("Not Found")
 	"""
         download(filename, dst) : Downloads a file (f) from SurfStore and saves
         it to (dst) folder. Ensures not to download unnecessary blocks.
 	"""
 	def download(self, filename, location):
-		pass
+		rpath = os.path.realpath(location)
+		if os.path.isdir(rpath):
+			fil = location + "/" + filename
+			fpath = os.path.realpath(fil)
+			try:
+				hashlist, version = self.metaDataStore.root.read_file(filename)
+				hashlist = json.loads(hashlist)
+				if hashlist == []:
+					raise ErrorResponse("No file")
+				final = ""
+				for hash in hashlist:
+					#print("ye")
+					#print(hash)
+					block_number = self.findServer(hash)
+					block = self.blockStoreList[block_number].root.get_block(hash)
+					block = block.decode('utf-8')
+					final += block
+				fildir = open(fpath, 'w')
+				fildir.write(final)
+				fildir.close()
+				print("OK")
+			except ErrorResponse:
+				print("Not Found1")
+
+		else:
+			print("Not Found2")
+
+	def findServer(self, h):
+		return (int(h,16)) % self.no_of_blockstores
 
 	"""
 	 Use eprint to print debug messages to stderr
