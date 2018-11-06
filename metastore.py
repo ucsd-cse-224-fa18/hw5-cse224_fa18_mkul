@@ -79,13 +79,15 @@ class MetadataStore(rpyc.Service):
 		hashlist = json.loads(hashlist)
 		if filename not in self.exposed_fileHash.keys() and version==1:
 			self.create_new_entry(filename, hashlist, version)
+			missing_hashlist = self.check_hashlist(filename, hashlist)
 			#print("created new entry")
-			return json.dumps(hashlist), version, True
+			dump = json.dumps(missing_hashlist)
+			return dump, version, True
+			#print("LOL?")
 		if filename in self.exposed_fileHash.keys(): # check file in dict
 			if version == self.exposed_fileHash[filename][0] + 1: # check if version is greater so that it can update
 				#print("Modifying the filename")
 				missing_hashlist = self.check_hashlist(filename, hashlist)
-				#print(missing_hashlist)
 				self.exposed_fileHash[filename][0] = version
 				self.exposed_fileHash[filename][1] = hashlist
 				return json.dumps(missing_hashlist), version, False
@@ -96,7 +98,6 @@ class MetadataStore(rpyc.Service):
 
 	def check_hashlist(self, filename, hashlist):
 		missing_hashlist = []
-		#print(self.exposed_fileHash[filename][1])
 		for hash in hashlist:
 			block_no = self.findServer(hash)
 			if not self.blockStoreList[block_no].root.has_block(hash):
@@ -104,6 +105,7 @@ class MetadataStore(rpyc.Service):
 		return missing_hashlist
 
 	def create_new_entry(self, filename, hashlist, version):
+		#print("Trying entry!")
 		self.exposed_fileHash.update({filename:[version, hashlist]})
 
 	'''
@@ -131,11 +133,14 @@ class MetadataStore(rpyc.Service):
 	'''
 	def exposed_read_file(self, filename):
 		# for downloading a file
-		if filename not in self.exposed_fileHash.keys():
-			raise ErrorResponse("key error")
-		version = self.exposed_fileHash[filename][0]
-		hashlist = self.exposed_fileHash[filename][1]
-		return  version, json.dumps(hashlist)
+		try:
+			if filename not in self.exposed_fileHash.keys():
+				raise ErrorResponse("key error")
+			version = self.exposed_fileHash[filename][0]
+			hashlist = self.exposed_fileHash[filename][1]
+			return  (version, json.dumps(hashlist))
+		except:
+			pass
 
 	def findServer(self, h):
 		return (int(h,16)) % self.no_of_blockstores

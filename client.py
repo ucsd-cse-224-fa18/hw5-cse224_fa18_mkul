@@ -69,12 +69,12 @@ class SurfStoreClient():
 			if new == True:
 				breaker = False
 			else:
-				print("enter this")
+				# print("enter this")
 				version = new_version + 1
-			print(new_version)
+			#print(new_version)
 			while breaker:
 				missing_hashlist, new_version, new = self.metaDataStore.root.modify_file(filename, version, json.dumps(hash_list))
-				print(version, new_version)
+				# print(version, new_version)
 				if new_version == version:
 					breaker = False
 				if new_version != version:
@@ -84,6 +84,7 @@ class SurfStoreClient():
 			if list_to_store:
 				for hash in list_to_store:
 					# print(list_to_store)
+					#print("trying")
 					block_number = self.findServer(hash)
 					self.blockStoreList[block_number].root.store_block(hash, self.hash_dict[hash])
 				print("OK")
@@ -148,10 +149,10 @@ class SurfStoreClient():
 				fildir.close()
 				print("OK")
 			except ErrorResponse:
-				print("Not Found1")
+				print("Not Found")
 
 		else:
-			print("Not Found2")
+			print("Not Found")
 
 	def findServer(self, h):
 		return (int(h,16)) % self.no_of_blockstores
