@@ -45,6 +45,25 @@ class MetadataStore(rpyc.Service):
 	"""
 	def __init__(self, config):
 		self.exposed_fileHash = {} # stores the file: hash list pairs
+		confdict = {}
+		file = open(config, 'r')
+		data = file.read()
+		file.close()
+		list_dat = data.split('\n')
+		list_dat.remove('')
+		for element in list_dat:
+			a, b = element.split(': ')
+			confdict.update({a: b})
+		self.no_of_blockstores = int(confdict['B'])
+		del confdict['B']
+		# confdict now only has the values of the blockstore
+		del confdict['metadata']
+		# connects to the metaDataStore server
+		self.blockStoreList = []
+		for n in range(self.no_of_blockstores):
+			ip, port = confdict['block'+str(n)].split(':')
+			blockStore = rpyc.connect(ip, port)
+			self.blockStoreList.append(blockStore)
 
 	'''
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -58,28 +77,29 @@ class MetadataStore(rpyc.Service):
 	def exposed_modify_file(self, filename, version, hashlist):
 		# for already existent files
 		hashlist = json.loads(hashlist)
-		if filename in self.exposed_fileHash.keys():
-			'''check for modified hash and return hash list that needs modifying'''
-			missing_hashlist = self.check_hashlist(filename, hashlist)
-			if not missing_hashlist:
-				return json.dumps(missing_hashlist), self.exposed_fileHash[filename][0]
-			if version == self.exposed_fileHash[filename][0] + 1:
-				self.exposed_fileHash.update({filename:[version, hashlist]})
-				#print(self.exposed_fileHash[filename])
-				return json.dumps(missing_hashlist), self.exposed_fileHash[filename][0]
-			#print(self.exposed_fileHash[filename])
-			return json.dumps(missing_hashlist), self.exposed_fileHash[filename][0]
-		else:
-			'''create a new filename'''
+		if filename not in self.exposed_fileHash.keys() and version==1:
 			self.create_new_entry(filename, hashlist, version)
-			return json.dumps(hashlist), version
+			#print("created new entry")
+			return json.dumps(hashlist), version, True
+		if filename in self.exposed_fileHash.keys(): # check file in dict
+			if version == self.exposed_fileHash[filename][0] + 1: # check if version is greater so that it can update
+				#print("Modifying the filename")
+				missing_hashlist = self.check_hashlist(filename, hashlist)
+				#print(missing_hashlist)
+				self.exposed_fileHash[filename][0] = version
+				self.exposed_fileHash[filename][1] = hashlist
+				return json.dumps(missing_hashlist), version, False
+			else: # if not, send blank hashlist and correct version
+				#print("bad version number")
+				missing_hashlist = []
+				return json.dumps(missing_hashlist), self.exposed_fileHash[filename][0], False
 
 	def check_hashlist(self, filename, hashlist):
 		missing_hashlist = []
 		#print(self.exposed_fileHash[filename][1])
-		hashL = self.exposed_fileHash[filename][1]
 		for hash in hashlist:
-			if hash not in hashL:
+			block_no = self.findServer(hash)
+			if not self.blockStoreList[block_no].root.has_block(hash):
 				missing_hashlist.append(hash)
 		return missing_hashlist
 
@@ -115,7 +135,10 @@ class MetadataStore(rpyc.Service):
 			raise ErrorResponse("key error")
 		version = self.exposed_fileHash[filename][0]
 		hashlist = self.exposed_fileHash[filename][1]
-		return json.dumps(hashlist), version
+		return  version, json.dumps(hashlist)
+
+	def findServer(self, h):
+		return (int(h,16)) % self.no_of_blockstores
 
 if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer

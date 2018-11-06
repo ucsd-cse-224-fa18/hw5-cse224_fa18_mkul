@@ -55,40 +55,42 @@ class SurfStoreClient():
 		filename = filename.split('/')
 		filename = filename[len(filename)-1]
 		#print(filename)
-		file = open(rpath, 'rb')
-		# utf-8 and bytes formatting changes?
-		data = file.read()
-		file.close()
-		# create hashlist
-		self.hash_dict = self.hasher(data)
-		hash_list = []
-		for key, value in self.hash_dict.items():
-			hash_list.append(key)
-		# we have the hashlist!
-		# initial modify (If this works, that means the filename sent is new)
 		try:
-			# need to put a while loop here
-			print(filename)
-			missing_hashlist, version = self.metaDataStore.root.modify_file(filename, 1, json.dumps(hash_list))
-			if json.loads(missing_hashlist):
-				rver = version + 1
-				version += 1
-				missing_hashlist, version = self.metaDataStore.root.modify_file(filename, version, json.dumps(hash_list))
-				if version == rver:
-					print("Modified")
-		except ErrorResponse as e:
-			eprint("Some error happening!")
+			file = open(rpath, 'rb')
+			data = file.read()
+			file.close()
+			# create hashlist
+			self.hash_dict = self.hasher(data)
+			hash_list = []
+			for key, value in self.hash_dict.items():
+				hash_list.append(key)
+			breaker = True
+			missing_hashlist, new_version, new = self.metaDataStore.root.modify_file(filename, version, json.dumps(hash_list))
+			if new == True:
+				breaker = False
+			else:
+				print("enter this")
+				version = new_version + 1
+			print(new_version)
+			while breaker:
+				missing_hashlist, new_version, new = self.metaDataStore.root.modify_file(filename, version, json.dumps(hash_list))
+				print(version, new_version)
+				if new_version == version:
+					breaker = False
+				if new_version != version:
+					version = new_version
+				# putting missing hashlist in blockstore
+			list_to_store = json.loads(missing_hashlist)
+			if list_to_store:
+				for hash in list_to_store:
+					# print(list_to_store)
+					block_number = self.findServer(hash)
+					self.blockStoreList[block_number].root.store_block(hash, self.hash_dict[hash])
+				print("OK")
+			else:
+				print("OK")
+		except FileNotFoundError:
 			print("Not Found")
-			# putting missing hashlist in blockstore
-		blah = json.loads(missing_hashlist)
-		if blah:
-			for hash in blah:
-				print(blah)
-				block_number = self.findServer(hash)
-				self.blockStoreList[block_number].root.store_block(hash, self.hash_dict[hash])
-			print("OK")
-		else:
-			print("OK")
 
 	def hasher(self, data):
 		hash_dict = {}
@@ -105,7 +107,7 @@ class SurfStoreClient():
 	"""
 	def delete(self, filename):
 		try:
-			hashlist, version = self.metaDataStore.root.read_file(filename)
+			version, hashlist = self.metaDataStore.root.read_file(filename)
 			hashlist = json.loads(hashlist)
 			version += 1 # for the tombstone value
 			if not hashlist:
@@ -129,7 +131,7 @@ class SurfStoreClient():
 			fil = location + "/" + filename
 			fpath = os.path.realpath(fil)
 			try:
-				hashlist, version = self.metaDataStore.root.read_file(filename)
+				version, hashlist = self.metaDataStore.root.read_file(filename)
 				hashlist = json.loads(hashlist)
 				if hashlist == []:
 					raise ErrorResponse("No file")
