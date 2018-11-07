@@ -135,7 +135,7 @@ class SurfStoreClient():
 			try:
 				version, hashlist = self.metaDataStore.root.read_file(filename)
 #				hashlist = json.loads(hashlist)
-				if hashlist == []:
+				if not hashlist:
 					raise ErrorResponse("No file")
 				final = ""
 				for hash in hashlist:
