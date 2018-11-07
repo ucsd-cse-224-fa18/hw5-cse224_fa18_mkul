@@ -64,7 +64,7 @@ class MetadataStore(rpyc.Service):
 			ip, port = confdict['block'+str(n)].split(':')
 			blockStore = rpyc.connect(ip, port)
 			self.blockStoreList.append(blockStore)
-		self.uploadlock = self.Lock()
+		self.uploadlock = Lock()
 
 		'''
 	        ModifyFile(f,v,hl): Modifies file f so that it now contains the
