@@ -76,29 +76,29 @@ class MetadataStore(rpyc.Service):
 	        method as an RPC call
 		'''
 	def exposed_modify_file(self, filename, version, hashlist):
+		self.uploadlock.acquire()
 		# for already existent files
 		hashlist = json.loads(hashlist)
 		if filename not in self.exposed_fileHash.keys() and version==1:
-			self.uploadlock.acquire()
 			self.create_new_entry(filename, hashlist, version)
-			self.uploadlock.release()
 			missing_hashlist = self.check_hashlist(filename, hashlist)
 			#print("created new entry")
 			dump = json.dumps(missing_hashlist)
+			self.uploadlock.release()
 			return dump, version, True
 			#print("LOL?")
 		if filename in self.exposed_fileHash.keys(): # check file in dict
 			if version == self.exposed_fileHash[filename][0] + 1: # check if version is greater so that it can update
 				#print("Modifying the filename")
 				missing_hashlist = self.check_hashlist(filename, hashlist)
-				self.uploadlock.acquire()
 				self.exposed_fileHash[filename][0] = version
 				self.exposed_fileHash[filename][1] = hashlist
-
+				self.uploadlock.release()
 				return json.dumps(missing_hashlist), version, False
 			else: # if not, send blank hashlist and correct version
 				#print("bad version number")
 				missing_hashlist = []
+				self.uploadlock.release()
 				return json.dumps(missing_hashlist), self.exposed_fileHash[filename][0], False
 
 	def check_hashlist(self, filename, hashlist):
