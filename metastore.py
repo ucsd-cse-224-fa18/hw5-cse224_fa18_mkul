@@ -144,7 +144,7 @@ class MetadataStore(rpyc.Service):
 				hashlist = self.exposed_fileHash[filename][1]
 				return  (version, hashlist)
 			else:
-				return (version, [])
+				return (0, [])
 		except Exception:
 			pass
 
