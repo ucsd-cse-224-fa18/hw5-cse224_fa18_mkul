@@ -1,6 +1,5 @@
 import rpyc
 import sys
-import json
 from threading import Lock
 '''
 A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
@@ -75,31 +74,36 @@ class MetadataStore(rpyc.Service):
 	        As per rpyc syntax, adding the prefix 'exposed_' will expose this
 	        method as an RPC call
 		'''
-	def exposed_modify_file(self, filename, version, hashlist):
+	def exposed_modify_file(self, filename, version, hl):
 		self.uploadlock.acquire()
 		# for already existent files
-		hashlist = json.loads(hashlist)
-		if filename not in self.exposed_fileHash.keys() and version==1:
-			self.create_new_entry(filename, hashlist, version)
-			missing_hashlist = self.check_hashlist(filename, hashlist)
-			#print("created new entry")
-			dump = json.dumps(missing_hashlist)
-			self.uploadlock.release()
-			return dump, version, True
-			#print("LOL?")
-		if filename in self.exposed_fileHash.keys(): # check file in dict
-			if version == self.exposed_fileHash[filename][0] + 1: # check if version is greater so that it can update
-				#print("Modifying the filename")
-				missing_hashlist = self.check_hashlist(filename, hashlist)
-				self.exposed_fileHash[filename][0] = version
-				self.exposed_fileHash[filename][1] = hashlist
+		hashlist = []
+		for element in hl:
+			hashlist.append(element)
+		missing_hashlist = self.check_hashlist(filename, hashlist)
+		if filename not in self.exposed_fileHash.keys():
+			#self.create_new_entry(filename, hashlist, version)
+			#print(missing_hashlist)
+			if not missing_hashlist:
+				#print("create new entry")
+				self.create_new_entry(filename, hashlist, version)
 				self.uploadlock.release()
-				return json.dumps(missing_hashlist), version, False
-			else: # if not, send blank hashlist and correct version
-				#print("bad version number")
-				missing_hashlist = []
+				return (missing_hashlist, version)
+			if missing_hashlist:
+				#print("new file missing hashlist")
 				self.uploadlock.release()
-				return json.dumps(missing_hashlist), self.exposed_fileHash[filename][0], False
+				return (missing_hashlist, version)
+		elif filename in self.exposed_fileHash.keys():
+			if not missing_hashlist:
+				#print("editing entry")
+				self.edit_entry(filename, hashlist, version)
+				self.uploadlock.release()
+				return (missing_hashlist, version)
+			if missing_hashlist:
+				#print("something missing, sending missing hashlist back")
+				self.uploadlock.release()
+				return (missing_hashlist, version)
+		self.uploadlock.release()
 
 	def check_hashlist(self, filename, hashlist):
 		missing_hashlist = []
@@ -111,6 +115,9 @@ class MetadataStore(rpyc.Service):
 
 	def create_new_entry(self, filename, hashlist, version):
 		#print("Trying entry!")
+		self.exposed_fileHash.update({filename:[version, hashlist]})
+
+	def edit_entry(self, filename, hashlist, version):
 		self.exposed_fileHash.update({filename:[version, hashlist]})
 
 	'''
