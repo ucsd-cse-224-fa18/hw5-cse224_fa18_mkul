@@ -65,15 +65,15 @@ class MetadataStore(rpyc.Service):
 			blockStore = rpyc.connect(ip, port)
 			self.blockStoreList.append(blockStore)
 
-	'''
-        ModifyFile(f,v,hl): Modifies file f so that it now contains the
-        contents refered to by the hashlist hl.  The version provided, v, must
-        be exactly one larger than the current version that the MetadataStore
-        maintains.
+		'''
+	        ModifyFile(f,v,hl): Modifies file f so that it now contains the
+	        contents refered to by the hashlist hl.  The version provided, v, must
+	        be exactly one larger than the current version that the MetadataStore
+	        maintains.
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
-	'''
+	        As per rpyc syntax, adding the prefix 'exposed_' will expose this
+	        method as an RPC call
+		'''
 	def exposed_modify_file(self, filename, version, hashlist):
 		# for already existent files
 		hashlist = json.loads(hashlist)
@@ -138,8 +138,8 @@ class MetadataStore(rpyc.Service):
 				raise ErrorResponse("key error")
 			version = self.exposed_fileHash[filename][0]
 			hashlist = self.exposed_fileHash[filename][1]
-			return  (version, json.dumps(hashlist))
-		except:
+			return  (version, hashlist)
+		except Exception:
 			pass
 
 	def findServer(self, h):

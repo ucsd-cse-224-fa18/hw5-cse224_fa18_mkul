@@ -20,6 +20,7 @@ class SurfStoreClient():
 	def __init__(self, config):
 		confdict = {} # config dictionary
 		# file reading and parsing
+		config = os.path.realpath(config)
 		file = open(config, 'r')
 		data = file.read()
 		file.close()
@@ -109,7 +110,7 @@ class SurfStoreClient():
 	def delete(self, filename):
 		try:
 			version, hashlist = self.metaDataStore.root.read_file(filename)
-			hashlist = json.loads(hashlist)
+#			hashlist = json.loads(hashlist)
 			version += 1 # for the tombstone value
 			if not hashlist:
 				print("OK")
@@ -117,10 +118,10 @@ class SurfStoreClient():
 				try:
 					self.metaDataStore.root.delete_file(filename, version)
 					print("OK")
-				except:
+				except Exception:
 					eprint(e.argv)
 					print("Not Found")
-		except:
+		except Exception:
 			print("Not Found")
 	"""
         download(filename, dst) : Downloads a file (f) from SurfStore and saves
@@ -133,7 +134,7 @@ class SurfStoreClient():
 			fpath = os.path.realpath(fil)
 			try:
 				version, hashlist = self.metaDataStore.root.read_file(filename)
-				hashlist = json.loads(hashlist)
+#				hashlist = json.loads(hashlist)
 				if hashlist == []:
 					raise ErrorResponse("No file")
 				final = ""
@@ -150,9 +151,8 @@ class SurfStoreClient():
 				print("OK")
 			except ErrorResponse:
 				print("Not Found")
-
-		else:
-			print("Not Found")
+			except Exception:
+				print("Not Found")
 
 	def findServer(self, h):
 		return (int(h,16)) % self.no_of_blockstores
