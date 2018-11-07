@@ -85,7 +85,7 @@ class SurfStoreClient():
 		from math import ceil as ceiling
 		for x in range(ceiling(len(data)/4096)):
 			block = data[4096*x:4096*(x+1)]
-			hash = hashlib.sha1(block).hexdigest()
+			hash = hashlib.sha256(block).hexdigest()
 			#print(hash)
 			hash_dict.update({hash: block})
 		return hash_dict
