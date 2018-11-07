@@ -1,7 +1,7 @@
 import rpyc
 import sys
 import json
-
+from threading import Lock
 '''
 A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
@@ -64,6 +64,7 @@ class MetadataStore(rpyc.Service):
 			ip, port = confdict['block'+str(n)].split(':')
 			blockStore = rpyc.connect(ip, port)
 			self.blockStoreList.append(blockStore)
+		self.uploadlock = self.Lock()
 
 		'''
 	        ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -78,7 +79,9 @@ class MetadataStore(rpyc.Service):
 		# for already existent files
 		hashlist = json.loads(hashlist)
 		if filename not in self.exposed_fileHash.keys() and version==1:
+			self.uploadlock.acquire()
 			self.create_new_entry(filename, hashlist, version)
+			self.uploadlock.release()
 			missing_hashlist = self.check_hashlist(filename, hashlist)
 			#print("created new entry")
 			dump = json.dumps(missing_hashlist)
@@ -88,8 +91,10 @@ class MetadataStore(rpyc.Service):
 			if version == self.exposed_fileHash[filename][0] + 1: # check if version is greater so that it can update
 				#print("Modifying the filename")
 				missing_hashlist = self.check_hashlist(filename, hashlist)
+				self.uploadlock.acquire()
 				self.exposed_fileHash[filename][0] = version
 				self.exposed_fileHash[filename][1] = hashlist
+
 				return json.dumps(missing_hashlist), version, False
 			else: # if not, send blank hashlist and correct version
 				#print("bad version number")
@@ -134,11 +139,12 @@ class MetadataStore(rpyc.Service):
 	def exposed_read_file(self, filename):
 		# for downloading a file
 		try:
-			if filename not in self.exposed_fileHash.keys():
-				raise ErrorResponse("key error")
-			version = self.exposed_fileHash[filename][0]
-			hashlist = self.exposed_fileHash[filename][1]
-			return  (version, hashlist)
+			if filename in self.exposed_fileHash.keys():
+				version = self.exposed_fileHash[filename][0]
+				hashlist = self.exposed_fileHash[filename][1]
+				return  (version, hashlist)
+			else:
+				return (version, [])
 		except Exception:
 			pass
 
