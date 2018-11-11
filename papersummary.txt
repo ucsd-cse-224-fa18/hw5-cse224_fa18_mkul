@@ -1,11 +1,70 @@
-# Your paper summary goes here:
+# HW5 : PAPER SUMMARY
 
-PID: A12345678
+PID: A53285335
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+This 1984 paper is a landmark paper talking about the development of a RPC framework 
+for a local internetwork developed to handle calls between two remote systems. This
+was developed to make it easier to use distributed applications. RPCs allowed the 
+researchers to developed another abstraction level for the user to cover all the 
+intricacies involved in using an application on a remote computer. The RPC framework
+system uses the same concepts we use today: the concept of stubs. The RPC framework
+uses the client and server stub for marshalling and sending the data to a RPC 
+communication package (RPC Runtime). 
 
-# If in a group of two, put the second paper summary here:
+This system uses similar procedures for binding 
+a client with a server. It takes the arrangement of an exporter and an importer i.e. 
+a device that exports its service for the local network to use to be an exporter and
+the user of that requested service to be an importer. The binding operation offered 
+by our RPC package uses two major parts in assigning a service provided by the 
+exporter: the type and the instance. The type of the service indicates what function
+the service does in some level of understanding. The instance indicates the exact 
+implementer of the service. The instance allows a user to call a specific remote 
+system to run the service. The importer can inform the distributed database (Grapevine)
+about its service and the database updates the type of service and the instance in 
+the database. This allows an importer to call that service and get the appropriate
+binding from the RPCRuntime which has the database running in it. 
 
-PID: A12345678
+The various data types are handled by a common Lupine language that converts the data 
+into a common data type and this can be marshalled and unmarshalled to be read and 
+written between different programming languages the system used. 
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+What is notable about this protocol is that unlike the current RPC frameworks that rely
+on abstraction levels below it (TCP/IP/HTTP/UDP) to transfer messages between systems on a 
+large network, the researchers created their own transport protocol as they considered
+bul transport protocols to be less suitable for RPC calls as these byte streams were 
+made for large data transfers and not meant for RPC calls which demanded a low latency 
+and quicker responses as the RPC had to behave similar to a local system call. This was
+done by reducing the amount of information exchanged between the protocol as it wasn't
+necessary as RPC calls used by this system didn't exchange huge quantities of data.
+Along with this, it was also expected that the network be able to serve a large number
+of clients which needed lesser exchange of state data and quicker responses to queries. 
+To do this, the transport packet (handled by RPC Runtime) was composed of a few headers 
+that described the ID of the call, procedure and arguments. The Call ID was made to 
+identify the callers sending the requests. Along with this, for longer calls the sender 
+waited for an acknowledgement from the RPC and then only sent the next part of the call.
+This made the system impervious to packet duplicates and packet reordering as the packet
+number was also provided. The transport protocol did not need any particular window for 
+packet transmission as each packet needed an acknowledgement. 
+
+To handle packet failures and packet losses, the RPC system hid all the exact problems
+from the user and handled all the errors as an exception. This exception handled all 
+the problems such as packet loss, increased load on exporter, server crash, or network
+failure. As the client stub does not know exactly what happened, the client stub 
+automatically raises an exception and notifies the client that RPC asked did not work
+how it should have. These exceptions were supported by the programming language they 
+used so it made it easier for them to implement exceptions. Similarly if the client 
+could not send messages, the server stub would drop the process if there was a timeout. 
+
+An RPC call if unsecure can be read by eavesdroppers and certain network nodes can act
+as a malicious node and flood the network with RPC calls. To prevent some cases like
+these, the system used the database system as an authentication service which gave the
+guarantee of identity of the callee and the caller to each other. Along with this end
+to end encryption of calls and results were implemented and also the techniques allowed 
+detection of any modifications to the calls during transmission. This protected the 
+packets from being eavesdropped and prevented any modifications during transmission. 
+
+Finally the system acts as a prototype of an RPC system that is implemented today: secure,
+resilient, request-response system, minimum latency for response and acts like the call
+was implemented locally. 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~END~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
